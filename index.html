@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthPulse MVP - 健康管理アプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { @apply border-primary-600 text-primary-600 font-semibold; }
+        .tab-inactive { @apply border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-primary-600 text-white p-2 rounded-xl shadow-md">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent">
+                            HealthPulse MVP
+                        </h1>
+                        <p class="text-xs text-slate-400">日々の健康状態をスマートに記録</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <button id="btn-load-sample" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">サンプルデータ生成</span>
+                        <span class="sm:hidden">デモ</span>
+                    </button>
+                    <button id="btn-open-entry" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition shadow-sm flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>今日を記録</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <nav class="flex space-x-8 border-t border-slate-100 overflow-x-auto" aria-label="Tabs">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn tab-active py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> ダッシュボード
+                </button>
+                <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn tab-inactive py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="line-chart" class="w-4 h-4"></i> 統計・グラフ
+                </button>
+                <button onclick="switchTab('history')" id="tab-history" class="tab-btn tab-inactive py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="calendar" class="w-4 h-4"></i> 履歴・一覧
+                </button>
+                <button onclick="switchTab('goals')" id="tab-goals" class="tab-btn tab-inactive py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="target" class="w-4 h-4"></i> 目標設定
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- DASHBOARD TAB CONTENT -->
+        <div id="content-dashboard" class="space-y-6">
+            <!-- Date & Greeting Banner -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800" id="greeting-title">おかえりなさい 👋</h2>
+                    <p class="text-slate-500 text-sm mt-1" id="current-date-display">2026年8月18日 (火)</p>
+                </div>
+                <div class="mt-4 sm:mt-0 flex items-center space-x-2 text-sm bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                    <i data-lucide="flame" class="w-5 h-5 text-orange-500"></i>
+                    <span>連続記録: <strong class="text-orange-600 font-semibold" id="streak-count">0</strong> 日</span>
+                </div>
+            </div>
+
+            <!-- Key Metrics Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Weight Card -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-medium">最新の体重</span>
+                        <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <i data-lucide="scale" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-2xl font-bold text-slate-800" id="card-weight">--</span>
+                        <span class="text-xs text-slate-500">kg</span>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500 flex items-center gap-1" id="weight-subtext">
+                        <span>目標: <span id="target-weight-val">65</span>kg</span>
+                    </div>
+                </div>
+
+                <!-- Steps Card -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-medium">今日の歩数</span>
+                        <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                            <i data-lucide="footprints" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-2xl font-bold text-slate-800" id="card-steps">0</span>
+                        <span class="text-xs text-slate-500">歩</span>
+                    </div>
+                    <div class="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div id="steps-progress-bar" class="bg-emerald-500 h-1.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Sleep Card -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-medium">睡眠時間</span>
+                        <div class="p-2 bg-purple-50 rounded-lg text-purple-600">
+                            <i data-lucide="moon" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-2xl font-bold text-slate-800" id="card-sleep">--</span>
+                        <span class="text-xs text-slate-500">時間</span>
+                    </div>
+                    <div class="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div id="sleep-progress-bar" class="bg-purple-500 h-1.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Water Intake Card -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-medium">水分摂取</span>
+                        <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                            <i data-lucide="droplet" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-2xl font-bold text-slate-800" id="card-water">0</span>
+                        <span class="text-xs text-slate-500">ml</span>
+                    </div>
+                    <div class="mt-2 flex gap-1">
+                        <button onclick="quickAddWater(200)" class="flex-1 py-1 text-xs bg-blue-50 text-blue-600 rounded font-medium hover:bg-blue-100 transition">+200ml</button>
+                        <button onclick="quickAddWater(500)" class="flex-1 py-1 text-xs bg-blue-50 text-blue-600 rounded font-medium hover:bg-blue-100 transition">+500ml</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Charts Overview Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Weight Trend Quick Chart -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-primary-600"></i> 体重の推移 (直近7日間)
+                        </h3>
+                        <button onclick="switchTab('analytics')" class="text-xs text-primary-600 hover:underline">詳細を見る</button>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="dashWeightChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Steps & Sleep Chart -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-emerald-600"></i> 歩数・活動量 (直近7日間)
+                        </h3>
+                        <button onclick="switchTab('analytics')" class="text-xs text-primary-600 hover:underline">詳細を見る</button>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="dashActivityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANALYTICS TAB CONTENT -->
+        <div id="content-analytics" class="space-y-6 hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="scale" class="w-5 h-5 text-primary-600"></i> 体重と目標ラインの比較
+                </h3>
+                <div class="h-80">
+                    <canvas id="fullWeightChart"></canvas>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i data-lucide="footprints" class="w-5 h-5 text-emerald-600"></i> 毎日の歩数グラフ
+                    </h3>
+                    <div class="h-64">
+                        <canvas id="fullStepsChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i data-lucide="moon" class="w-5 h-5 text-purple-600"></i> 睡眠時間の傾向
+                    </h3>
+                    <div class="h-64">
+                        <canvas id="fullSleepChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY TAB CONTENT -->
+        <div id="content-history" class="space-y-6 hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-primary-600"></i> 過去の記録一覧
+                    </h3>
+                    <div class="text-sm text-slate-500">
+                        総記録数: <span id="history-count" class="font-semibold text-slate-800">0</span> 件
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
+                                <th class="py-3 px-4">日付</th>
+                                <th class="py-3 px-4">気分</th>
+                                <th class="py-3 px-4">体重</th>
+                                <th class="py-3 px-4">歩数</th>
+                                <th class="py-3 px-4">睡眠</th>
+                                <th class="py-3 px-4">水分</th>
+                                <th class="py-3 px-4">メモ</th>
+                                <th class="py-3 px-4 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-100 text-sm">
+                            <!-- JS Dynamic injection -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="history-empty" class="p-12 text-center text-slate-400 hidden">
+                    <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 stroke-1"></i>
+                    <p>まだ記録はありません。「今日を記録」ボタンから記録を追加してください。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- GOALS TAB CONTENT -->
+        <div id="content-goals" class="space-y-6 hidden">
+            <div class="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="target" class="w-5 h-5 text-primary-600"></i> 健康目標の設定
+                </h3>
+
+                <form id="goals-form" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">目標体重 (kg)</label>
+                        <div class="relative">
+                            <input type="number" step="0.1" id="goal-weight-input" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none" placeholder="例: 65.0">
+                            <span class="absolute right-4 top-2.5 text-slate-400 text-sm">kg</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">目標歩数 (歩/日)</label>
+                        <div class="relative">
+                            <input type="number" id="goal-steps-input" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none" placeholder="例: 8000">
+                            <span class="absolute right-4 top-2.5 text-slate-400 text-sm">歩</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">目標睡眠時間 (時間/日)</label>
+                        <div class="relative">
+                            <input type="number" step="0.5" id="goal-sleep-input" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none" placeholder="例: 7.5">
+                            <span class="absolute right-4 top-2.5 text-slate-400 text-sm">時間</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">目標水分摂取量 (ml/日)</label>
+                        <div class="relative">
+                            <input type="number" step="100" id="goal-water-input" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none" placeholder="例: 2000">
+                            <span class="absolute right-4 top-2.5 text-slate-400 text-sm">ml</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition shadow-sm">
+                        目標を保存する
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- RECORD ENTRY MODAL -->
+    <div id="entry-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-title">健康状態を記録</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="record-form" class="p-6 space-y-5">
+                <!-- Date Picker -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">日付</label>
+                    <input type="date" id="entry-date" required class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none">
+                </div>
+
+                <!-- Mood Selector -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">今日の気分 / 体調</label>
+                    <div class="flex justify-between gap-2">
+                        <button type="button" onclick="selectMood('great')" class="mood-btn flex-1 py-2 border border-slate-200 rounded-xl text-center hover:bg-slate-50 transition" data-mood="great">
+                            <span class="text-2xl block">😄</span>
+                            <span class="text-xs text-slate-600 font-medium">最高</span>
+                        </button>
+                        <button type="button" onclick="selectMood('good')" class="mood-btn flex-1 py-2 border border-slate-200 rounded-xl text-center hover:bg-slate-50 transition" data-mood="good">
+                            <span class="text-2xl block">😊</span>
+                            <span class="text-xs text-slate-600 font-medium">良好</span>
+                        </button>
+                        <button type="button" onclick="selectMood('okay')" class="mood-btn flex-1 py-2 border border-slate-200 rounded-xl text-center hover:bg-slate-50 transition" data-mood="okay">
+                            <span class="text-2xl block">😐</span>
+                            <span class="text-xs text-slate-600 font-medium">普通</span>
+                        </button>
+                        <button type="button" onclick="selectMood('bad')" class="mood-btn flex-1 py-2 border border-slate-200 rounded-xl text-center hover:bg-slate-50 transition" data-mood="bad">
+                            <span class="text-2xl block">😫</span>
+                            <span class="text-xs text-slate-600 font-medium">不調</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Weight Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">体重 (kg)</label>
+                        <input type="number" step="0.1" id="entry-weight" placeholder="68.5" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none">
+                    </div>
+
+                    <!-- Steps Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">歩数 (歩)</label>
+                        <input type="number" id="entry-steps" placeholder="7500" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Sleep Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">睡眠時間 (時間)</label>
+                        <input type="number" step="0.5" id="entry-sleep" placeholder="7.0" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none">
+                    </div>
+
+                    <!-- Water Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">水分 (ml)</label>
+                        <input type="number" step="100" id="entry-water" placeholder="1500" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Notes Input -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">メモ・日記</label>
+                    <textarea id="entry-notes" rows="3" placeholder="今日の体調や食事、運動メモ..." class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm resize-none"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal()" class="px-5 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 font-medium rounded-xl text-sm transition">キャンセル</button>
+                    <button type="submit" class="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl text-sm transition shadow-sm">保存する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // APP STATE
+        let healthData = JSON.parse(localStorage.getItem('hp_health_data')) || [];
+        let goals = JSON.parse(localStorage.getItem('hp_goals')) || {
+            weight: 65.0,
+            steps: 8000,
+            sleep: 7.5,
+            water: 2000
+        };
+        let selectedMood = 'good';
+        let chartInstances = {};
+
+        const MOOD_EMOJIS = {
+            great: '😄',
+            good: '😊',
+            okay: '😐',
+            bad: '😫'
+        };
+
+        // DOM ELEMENTS
+        window.onload = function() {
+            lucide.createIcons();
+            initDate();
+            loadGoalsToForm();
+            updateDashboard();
+            renderCharts();
+            renderHistoryTable();
+
+            // Event Listeners
+            document.getElementById('btn-open-entry').addEventListener('click', () => openModal());
+            document.getElementById('btn-load-sample').addEventListener('click', generateSampleData);
+            document.getElementById('record-form').addEventListener('submit', handleRecordSubmit);
+            document.getElementById('goals-form').addEventListener('submit', handleGoalsSubmit);
+        };
+
+        // HELPER: Toast Notifications (No alert/confirm)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-slate-800';
+            
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg text-sm flex items-center gap-2 transform transition-all duration-300 translate-y-5 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'info'}" class="w-4 h-4"></i> ${message}`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-5', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-5');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // TAB SWITCHING
+        function switchTab(tabId) {
+            const tabs = ['dashboard', 'analytics', 'history', 'goals'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const content = document.getElementById(`content-${t}`);
+                
+                if (t === tabId) {
+                    btn.className = 'tab-btn tab-active py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap';
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = 'tab-btn tab-inactive py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap';
+                    content.classList.add('hidden');
+                }
+            });
+
+            if (tabId === 'analytics') {
+                renderFullCharts();
+            }
+        }
+
+        function initDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('entry-date').value = today;
+            
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+            document.getElementById('current-date-display').innerText = new Date().toLocaleDateString('ja-JP', options);
+        }
+
+        // MOOD SELECTION
+        function selectMood(mood) {
+            selectedMood = mood;
+            document.querySelectorAll('.mood-btn').forEach(btn => {
+                if (btn.dataset.mood === mood) {
+                    btn.classList.add('border-primary-500', 'bg-primary-50', 'ring-2', 'ring-primary-200');
+                } else {
+                    btn.classList.remove('border-primary-500', 'bg-primary-50', 'ring-2', 'ring-primary-200');
+                }
+            });
+        }
+
+        // MODAL MANAGEMENT
+        function openModal(date = null) {
+            const modal = document.getElementById('entry-modal');
+            const dateInput = document.getElementById('entry-date');
+            
+            const targetDate = date || new Date().toISOString().split('T')[0];
+            dateInput.value = targetDate;
+
+            // Check if record exists for this date to prefill
+            const existing = healthData.find(d => d.date === targetDate);
+            if (existing) {
+                document.getElementById('entry-weight').value = existing.weight || '';
+                document.getElementById('entry-steps').value = existing.steps || '';
+                document.getElementById('entry-sleep').value = existing.sleep || '';
+                document.getElementById('entry-water').value = existing.water || '';
+                document.getElementById('entry-notes').value = existing.notes || '';
+                selectMood(existing.mood || 'good');
+            } else {
+                document.getElementById('entry-weight').value = '';
+                document.getElementById('entry-steps').value = '';
+                document.getElementById('entry-sleep').value = '';
+                document.getElementById('entry-water').value = '';
+                document.getElementById('entry-notes').value = '';
+                selectMood('good');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('entry-modal').classList.add('hidden');
+        }
+
+        // SAVE LOG ENTRY
+        function handleRecordSubmit(e) {
+            e.preventDefault();
+            const date = document.getElementById('entry-date').value;
+            const weight = parseFloat(document.getElementById('entry-weight').value) || null;
+            const steps = parseInt(document.getElementById('entry-steps').value) || 0;
+            const sleep = parseFloat(document.getElementById('entry-sleep').value) || null;
+            const water = parseInt(document.getElementById('entry-water').value) || 0;
+            const notes = document.getElementById('entry-notes').value.trim();
+
+            const entryIndex = healthData.findIndex(d => d.date === date);
+            const newRecord = { date, weight, steps, sleep, water, notes, mood: selectedMood };
+
+            if (entryIndex >= 0) {
+                healthData[entryIndex] = newRecord;
+            } else {
+                healthData.push(newRecord);
+            }
+
+            // Sort by date ascending
+            healthData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            localStorage.setItem('hp_health_data', JSON.stringify(healthData));
+            showToast('記録を保存しました！');
+            closeModal();
+            updateDashboard();
+            renderCharts();
+            renderHistoryTable();
+        }
+
+        // QUICK WATER ADD
+        function quickAddWater(amount) {
+            const today = new Date().toISOString().split('T')[0];
+            let todayRecord = healthData.find(d => d.date === today);
+
+            if (!todayRecord) {
+                todayRecord = { date: today, weight: null, steps: 0, sleep: null, water: amount, notes: '', mood: 'good' };
+                healthData.push(todayRecord);
+            } else {
+                todayRecord.water = (todayRecord.water || 0) + amount;
+            }
+
+            healthData.sort((a, b) => new Date(a.date) - new Date(b.date));
+            localStorage.setItem('hp_health_data', JSON.stringify(healthData));
+            showToast(`水分を +${amount}ml 追加しました`);
+            updateDashboard();
+            renderHistoryTable();
+        }
+
+        // GOALS MANAGEMENT
+        function loadGoalsToForm() {
+            document.getElementById('goal-weight-input').value = goals.weight;
+            document.getElementById('goal-steps-input').value = goals.steps;
+            document.getElementById('goal-sleep-input').value = goals.sleep;
+            document.getElementById('goal-water-input').value = goals.water;
+            document.getElementById('target-weight-val').innerText = goals.weight;
+        }
+
+        function handleGoalsSubmit(e) {
+            e.preventDefault();
+            goals = {
+                weight: parseFloat(document.getElementById('goal-weight-input').value) || 65.0,
+                steps: parseInt(document.getElementById('goal-steps-input').value) || 8000,
+                sleep: parseFloat(document.getElementById('goal-sleep-input').value) || 7.5,
+                water: parseInt(document.getElementById('goal-water-input').value) || 2000
+            };
+
+            localStorage.setItem('hp_goals', JSON.stringify(goals));
+            showToast('目標設定を更新しました！');
+            updateDashboard();
+            renderCharts();
+        }
+
+        // DASHBOARD UPDATE LOGIC
+        function updateDashboard() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayRecord = healthData.find(d => d.date === today);
+            const latestRecord = healthData.length > 0 ? healthData[healthData.length - 1] : null;
+
+            // Weight Display
+            if (latestRecord && latestRecord.weight) {
+                document.getElementById('card-weight').innerText = latestRecord.weight.toFixed(1);
+            } else {
+                document.getElementById('card-weight').innerText = '--';
+            }
+
+            // Steps Display
+            const steps = todayRecord ? todayRecord.steps : 0;
+            document.getElementById('card-steps').innerText = steps.toLocaleString();
+            const stepPct = Math.min(100, (steps / goals.steps) * 100);
+            document.getElementById('steps-progress-bar').style.width = `${stepPct}%`;
+
+            // Sleep Display
+            const sleep = todayRecord && todayRecord.sleep ? todayRecord.sleep : null;
+            document.getElementById('card-sleep').innerText = sleep ? sleep : '--';
+            const sleepPct = sleep ? Math.min(100, (sleep / goals.sleep) * 100) : 0;
+            document.getElementById('sleep-progress-bar').style.width = `${sleepPct}%`;
+
+            // Water Display
+            const water = todayRecord ? todayRecord.water : 0;
+            document.getElementById('card-water').innerText = water.toLocaleString();
+
+            // Streak Count
+            calculateStreak();
+        }
+
+        function calculateStreak() {
+            if (healthData.length === 0) {
+                document.getElementById('streak-count').innerText = 0;
+                return;
+            }
+
+            let streak = 0;
+            let checkDate = new Date();
+            
+            // Check backwards day by day
+            while (true) {
+                const dateStr = checkDate.toISOString().split('T')[0];
+                const hasEntry = healthData.some(d => d.date === dateStr);
+
+                if (hasEntry) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    // If today doesn't have entry yet, allow checking yesterday before breaking
+                    const isToday = dateStr === new Date().toISOString().split('T')[0];
+                    if (isToday) {
+                        checkDate.setDate(checkDate.getDate() - 1);
+                        continue;
+                    }
+                    break;
+                }
+            }
+
+            document.getElementById('streak-count').innerText = streak;
+        }
+
+        // CHART RENDERING
+        function renderCharts() {
+            const recentData = healthData.slice(-7);
+            const labels = recentData.map(d => d.date.substring(5)); // MM-DD
+
+            // 1. Dashboard Weight Chart
+            const ctxWeight = document.getElementById('dashWeightChart').getContext('2d');
+            if (chartInstances.dashWeight) chartInstances.dashWeight.destroy();
+
+            chartInstances.dashWeight = new Chart(ctxWeight, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : ['データなし'],
+                    datasets: [{
+                        label: '体重 (kg)',
+                        data: recentData.map(d => d.weight),
+                        borderColor: '#0284c7',
+                        backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0284c7'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: false }
+                    }
+                }
+            });
+
+            // 2. Dashboard Activity Chart
+            const ctxActivity = document.getElementById('dashActivityChart').getContext('2d');
+            if (chartInstances.dashActivity) chartInstances.dashActivity.destroy();
+
+            chartInstances.dashActivity = new Chart(ctxActivity, {
+                type: 'bar',
+                data: {
+                    labels: labels.length ? labels : ['データなし'],
+                    datasets: [{
+                        label: '歩数',
+                        data: recentData.map(d => d.steps),
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function renderFullCharts() {
+            const labels = healthData.map(d => d.date);
+
+            // Full Weight Chart with Target Line
+            const ctxFullWeight = document.getElementById('fullWeightChart').getContext('2d');
+            if (chartInstances.fullWeight) chartInstances.fullWeight.destroy();
+
+            chartInstances.fullWeight = new Chart(ctxFullWeight, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '体重 (kg)',
+                            data: healthData.map(d => d.weight),
+                            borderColor: '#0284c7',
+                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                            fill: true,
+                            tension: 0.2
+                        },
+                        {
+                            label: '目標体重',
+                            data: Array(healthData.length).fill(goals.weight),
+                            borderColor: '#ef4444',
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Full Steps Chart
+            const ctxFullSteps = document.getElementById('fullStepsChart').getContext('2d');
+            if (chartInstances.fullSteps) chartInstances.fullSteps.destroy();
+
+            chartInstances.fullSteps = new Chart(ctxFullSteps, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '歩数',
+                        data: healthData.map(d => d.steps),
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Full Sleep Chart
+            const ctxFullSleep = document.getElementById('fullSleepChart').getContext('2d');
+            if (chartInstances.fullSleep) chartInstances.fullSleep.destroy();
+
+            chartInstances.fullSleep = new Chart(ctxFullSleep, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '睡眠時間 (h)',
+                        data: healthData.map(d => d.sleep),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // HISTORY TABLE RENDER
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            const emptyMsg = document.getElementById('history-empty');
+            const countDisplay = document.getElementById('history-count');
+
+            tbody.innerHTML = '';
+            countDisplay.innerText = healthData.length;
+
+            if (healthData.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            } else {
+                emptyMsg.classList.add('hidden');
+            }
+
+            // Reversed order to show newest first
+            const sorted = [...healthData].reverse();
+
+            sorted.forEach((item) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-slate-800">${item.date}</td>
+                    <td class="py-3 px-4 text-xl">${MOOD_EMOJIS[item.mood] || '😊'}</td>
+                    <td class="py-3 px-4">${item.weight ? item.weight + ' kg' : '--'}</td>
+                    <td class="py-3 px-4">${item.steps ? item.steps.toLocaleString() + ' 歩' : '0'}</td>
+                    <td class="py-3 px-4">${item.sleep ? item.sleep + ' 時間' : '--'}</td>
+                    <td class="py-3 px-4">${item.water ? item.water + ' ml' : '0'}</td>
+                    <td class="py-3 px-4 text-slate-500 max-w-xs truncate">${item.notes || '-'}</td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex items-center justify-end space-x-2">
+                            <button onclick="openModal('${item.date}')" class="p-1 text-slate-400 hover:text-primary-600 transition" title="編集">
+                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteRecord('${item.date}')" class="p-1 text-slate-400 hover:text-red-600 transition" title="削除">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        // DELETE RECORD
+        function deleteRecord(date) {
+            healthData = healthData.filter(d => d.date !== date);
+            localStorage.setItem('hp_health_data', JSON.stringify(healthData));
+            showToast('記録を削除しました');
+            updateDashboard();
+            renderCharts();
+            renderHistoryTable();
+        }
+
+        // DEMO SAMPLE DATA GENERATOR
+        function generateSampleData() {
+            const today = new Date();
+            const samples = [];
+            const moods = ['great', 'good', 'okay', 'bad'];
+
+            let baseWeight = 68.5;
+
+            for (let i = 13; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+
+                // Slight random fluctuation for realistic curve
+                baseWeight += (Math.random() - 0.55) * 0.3;
+                const steps = Math.floor(Math.random() * 6000) + 4000;
+                const sleep = (Math.floor(Math.random() * 5) + 11) / 2; // 5.5 to 7.5
+                const water = Math.floor(Math.random() * 10) * 100 + 1200;
+                const mood = moods[Math.floor(Math.random() * moods.length)];
+
+                samples.push({
+                    date: dateStr,
+                    weight: parseFloat(baseWeight.toFixed(1)),
+                    steps: steps,
+                    sleep: sleep,
+                    water: water,
+                    mood: mood,
+                    notes: i === 0 ? '今日もお疲れ様でした！' : '順調にウォーキング完了。'
+                });
+            }
+
+            healthData = samples;
+            localStorage.setItem('hp_health_data', JSON.stringify(healthData));
+            showToast('過去14日分のサンプルデータを生成しました！');
+            updateDashboard();
+            renderCharts();
+            renderHistoryTable();
+        }
+    </script>
+</body>
+</html>
